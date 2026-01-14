@@ -1,4 +1,4 @@
-# Worksy Ops
+# AirPlatform (Worksy Ops)
 
 **The Complete Operations Platform for Airbnb Property Managers**
 
@@ -19,6 +19,7 @@ A production-grade SaaS application built with Next.js 14+ (App Router), TypeScr
 ## Features
 
 ### Core Modules
+
 - **Dashboard** - Overview of operations, stats, and recent activity
 - **Task Scheduling** - Automated task creation and assignment
 - **Work Coordination** - Multi-team workflow management
@@ -35,11 +36,13 @@ A production-grade SaaS application built with Next.js 14+ (App Router), TypeScr
 - **Upsells** - Revenue optimization
 
 ### Multi-Tenancy
+
 - Organization-based isolation
 - Property and unit hierarchy
 - Role-based access control (OWNER, MANAGER, COORDINATOR, VENDOR, CLEANER, INSPECTOR)
 
 ### Data Models
+
 - Organizations & Users
 - Properties & Units
 - Reservations (Airbnb integration ready)
@@ -51,6 +54,7 @@ A production-grade SaaS application built with Next.js 14+ (App Router), TypeScr
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - PostgreSQL database
 - npm or yarn
@@ -91,7 +95,7 @@ Password: password123
 ## Project Structure
 
 ```
-worksy-ops/
+airplatform/
 ├── prisma/
 │   ├── schema.prisma       # Database schema
 │   └── seed.ts            # Seed data
@@ -160,6 +164,7 @@ npm run db:studio
 ## Authentication
 
 Uses Auth.js (NextAuth v5) with:
+
 - Credentials provider (email/password)
 - JWT session strategy
 - Role-based access control
@@ -170,6 +175,7 @@ Uses Auth.js (NextAuth v5) with:
 ### Environment Variables
 
 Required for production:
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `AUTH_SECRET` - Generate with `openssl rand -base64 32`
 - `AUTH_URL` - Your production URL
