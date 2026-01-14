@@ -5,7 +5,13 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(gh repo create:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma generate)",
+      "Bash(npm run db:seed:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(ls:*)"
     ]
   }
 }
