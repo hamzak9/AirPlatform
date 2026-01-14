@@ -144,6 +144,7 @@ model Unit {
 
   // Relations
   airbnbListingMappings AirbnbListingMapping[]
+  calendarFeeds         AirbnbCalendarFeed[]
   reservations          Reservation[]
   taskInstances         TaskInstance[]
   checklistRuns         ChecklistRun[]
@@ -210,11 +211,50 @@ model AirbnbListingMapping {
   autoSyncCalendar Boolean @default(true)
   lastSyncedAt     DateTime?
 
+  // Relations
+  calendarFeeds AirbnbCalendarFeed[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([airbnbListingId])
   @@index([unitId])
+}
+
+enum CalendarSyncStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  NEVER_SYNCED
+}
+
+model AirbnbCalendarFeed {
+  id       String             @id @default(cuid())
+  icalUrl  String             // iCal feed URL from Airbnb
+
+  // Sync tracking
+  syncStatus    CalendarSyncStatus @default(NEVER_SYNCED)
+  lastFetchedAt DateTime?
+  lastEtag      String?          // For HTTP caching
+  lastHash      String?          // SHA256 of content to detect changes
+  errorMessage  String?
+
+  // Stats
+  reservationsCount    Int @default(0)
+  lastReservationSync  DateTime?
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  listingMappingId String?
+  listingMapping   AirbnbListingMapping? @relation(fields: [listingMappingId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId])
+  @@index([listingMappingId])
+  @@index([syncStatus])
 }
 
 // ============================================
@@ -232,6 +272,9 @@ model Reservation {
   id                  String            @id @default(cuid())
   airbnbReservationId String?           @unique
   confirmationCode    String?
+
+  // iCal sync tracking (for idempotency)
+  icalUid             String?           @unique // UID from iCal feed
 
   guestName       String
   guestEmail      String?
@@ -262,6 +305,7 @@ model Reservation {
   @@index([checkIn])
   @@index([checkOut])
   @@index([status])
+  @@index([icalUid])
 }
 
 // ============================================
