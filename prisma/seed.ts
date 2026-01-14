@@ -1,349 +1,1030 @@
-import { PrismaClient, UserRole, TaskStatus, TaskType, TaskPriority, ReservationStatus, UnitStatus, VendorType } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+import { PrismaClient } from '@prisma/client'
+import { hash } from 'bcryptjs'
+import { add, sub } from 'date-fns'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Starting seed...')
+  console.log('🌱 Seeding database...')
 
-  // Clean existing data
-  await prisma.message.deleteMany()
+  // Clear existing data
+  await prisma.auditLog.deleteMany()
+  await prisma.proof.deleteMany()
+  await prisma.checklistRunItem.deleteMany()
+  await prisma.checklistRun.deleteMany()
+  await prisma.assignment.deleteMany()
   await prisma.payout.deleteMany()
-  await prisma.checklistItem.deleteMany()
-  await prisma.checklist.deleteMany()
-  await prisma.task.deleteMany()
-  await prisma.reservation.deleteMany()
+  await prisma.invoice.deleteMany()
+  await prisma.workOrderApproval.deleteMany()
+  await prisma.workOrderQuote.deleteMany()
+  await prisma.workOrderLineItem.deleteMany()
   await prisma.workOrder.deleteMany()
+  await prisma.vendorCoverageArea.deleteMany()
+  await prisma.vendorSkill.deleteMany()
   await prisma.vendor.deleteMany()
+  await prisma.taskInstance.deleteMany()
+  await prisma.checklistTemplateItem.deleteMany()
+  await prisma.checklistTemplate.deleteMany()
+  await prisma.taskTemplate.deleteMany()
+  await prisma.reservation.deleteMany()
+  await prisma.airbnbListingMapping.deleteMany()
+  await prisma.airbnbIntegration.deleteMany()
   await prisma.unit.deleteMany()
-  await prisma.integration.deleteMany()
   await prisma.property.deleteMany()
+  await prisma.membership.deleteMany()
   await prisma.user.deleteMany()
   await prisma.organization.deleteMany()
 
-  console.log('✅ Cleaned existing data')
+  // ============================================
+  // ORGANIZATION
+  // ============================================
 
-  // Create Organization
+  console.log('📋 Creating organization...')
   const org = await prisma.organization.create({
     data: {
       name: 'Coastal Stays Management',
       slug: 'coastal-stays',
-      plan: 'pro',
       timezone: 'America/Los_Angeles',
+      plan: 'pro',
     },
   })
 
-  console.log('✅ Created organization:', org.name)
+  // ============================================
+  // USERS & MEMBERSHIPS
+  // ============================================
 
-  // Hash password for all users
-  const hashedPassword = await bcrypt.hash('password123', 10)
+  console.log('👥 Creating users and memberships...')
+  const hashedPassword = await hash('password123', 10)
 
-  // Create Users
   const owner = await prisma.user.create({
     data: {
-      email: 'owner@coastalstays.com',
-      name: 'Sarah Johnson',
+      email: 'sarah@coastalstays.com',
+      name: 'Sarah Chen',
       password: hashedPassword,
-      role: UserRole.OWNER,
+      phone: '+1-415-555-0100',
+    },
+  })
+
+  await prisma.membership.create({
+    data: {
+      userId: owner.id,
       organizationId: org.id,
+      role: 'OWNER',
     },
   })
 
   const manager = await prisma.user.create({
     data: {
-      email: 'manager@coastalstays.com',
-      name: 'Michael Chen',
+      email: 'mike@coastalstays.com',
+      name: 'Mike Rodriguez',
       password: hashedPassword,
-      role: UserRole.MANAGER,
-      organizationId: org.id,
+      phone: '+1-415-555-0101',
     },
   })
 
-  const cleaner1 = await prisma.user.create({
+  await prisma.membership.create({
     data: {
-      email: 'maria@coastalstays.com',
-      name: 'Maria Rodriguez',
-      password: hashedPassword,
-      role: UserRole.CLEANER,
+      userId: manager.id,
       organizationId: org.id,
+      role: 'MANAGER',
     },
   })
 
-  const cleaner2 = await prisma.user.create({
+  const cleaner = await prisma.user.create({
     data: {
-      email: 'james@coastalstays.com',
-      name: 'James Wilson',
+      email: 'jessica@example.com',
+      name: 'Jessica Williams',
       password: hashedPassword,
-      role: UserRole.CLEANER,
-      organizationId: org.id,
+      phone: '+1-415-555-0102',
     },
   })
 
-  console.log('✅ Created 4 users')
-
-  // Create Properties
-  const property1 = await prisma.property.create({
+  await prisma.membership.create({
     data: {
-      name: 'Sunset Beach House',
-      address: '123 Ocean Drive',
-      city: 'Santa Monica',
+      userId: cleaner.id,
+      organizationId: org.id,
+      role: 'CLEANER',
+    },
+  })
+
+  const inspector = await prisma.user.create({
+    data: {
+      email: 'david@example.com',
+      name: 'David Park',
+      password: hashedPassword,
+      phone: '+1-415-555-0103',
+    },
+  })
+
+  await prisma.membership.create({
+    data: {
+      userId: inspector.id,
+      organizationId: org.id,
+      role: 'INSPECTOR',
+    },
+  })
+
+  // ============================================
+  // PROPERTIES & UNITS
+  // ============================================
+
+  console.log('🏠 Creating properties and units...')
+
+  const beachHouse = await prisma.property.create({
+    data: {
+      name: 'Ocean View Beach House',
+      address: '123 Coastal Drive',
+      city: 'San Francisco',
       state: 'CA',
-      zipCode: '90401',
+      zipCode: '94121',
       country: 'US',
-      airbnbListingId: 'AIRBNB-001',
+      timezone: 'America/Los_Angeles',
+      latitude: 37.7749,
+      longitude: -122.4194,
       organizationId: org.id,
     },
   })
 
-  const property2 = await prisma.property.create({
+  const downtownCondo = await prisma.property.create({
     data: {
-      name: 'Downtown Loft Complex',
-      address: '456 Main Street',
-      city: 'Los Angeles',
+      name: 'Downtown Luxury Condos',
+      address: '456 Market Street',
+      city: 'San Francisco',
       state: 'CA',
-      zipCode: '90012',
+      zipCode: '94102',
       country: 'US',
-      airbnbListingId: 'AIRBNB-002',
+      timezone: 'America/Los_Angeles',
+      latitude: 37.7893,
+      longitude: -122.4008,
       organizationId: org.id,
     },
   })
 
-  console.log('✅ Created 2 properties')
-
-  // Create Units for Property 1
-  const unit1 = await prisma.unit.create({
+  const unitA = await prisma.unit.create({
     data: {
-      name: 'Oceanview Suite',
-      bedrooms: 2,
-      bathrooms: 2,
-      status: UnitStatus.ACTIVE,
-      propertyId: property1.id,
-    },
-  })
-
-  const unit2 = await prisma.unit.create({
-    data: {
-      name: 'Garden Villa',
+      name: 'Beach House - Main Unit',
       bedrooms: 3,
       bathrooms: 2.5,
-      status: UnitStatus.ACTIVE,
-      propertyId: property1.id,
+      maxGuests: 6,
+      readyStatus: 'READY',
+      lastReadyAt: new Date(),
+      propertyId: beachHouse.id,
     },
   })
 
-  // Create Unit for Property 2
-  const unit3 = await prisma.unit.create({
+  const unitB = await prisma.unit.create({
     data: {
-      name: 'Penthouse Loft',
+      name: 'Condo 301',
+      bedrooms: 2,
+      bathrooms: 2,
+      maxGuests: 4,
+      readyStatus: 'IN_PROGRESS',
+      propertyId: downtownCondo.id,
+    },
+  })
+
+  const unitC = await prisma.unit.create({
+    data: {
+      name: 'Condo 405',
       bedrooms: 1,
       bathrooms: 1,
-      status: UnitStatus.ACTIVE,
-      propertyId: property2.id,
+      maxGuests: 2,
+      readyStatus: 'NOT_READY',
+      propertyId: downtownCondo.id,
     },
   })
 
-  console.log('✅ Created 3 units')
+  // ============================================
+  // AIRBNB INTEGRATION
+  // ============================================
 
-  // Create Reservations
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const nextWeek = new Date(now)
-  nextWeek.setDate(nextWeek.getDate() + 7)
-  const twoWeeks = new Date(now)
-  twoWeeks.setDate(twoWeeks.getDate() + 14)
+  console.log('🔗 Setting up Airbnb integrations...')
 
-  const reservation1 = await prisma.reservation.create({
+  const airbnbOrgIntegration = await prisma.airbnbIntegration.create({
     data: {
-      airbnbReservationId: 'RES-001',
-      guestName: 'Emily Davis',
-      guestEmail: 'emily.davis@example.com',
-      guestPhone: '+1-555-0123',
-      numberOfGuests: 2,
-      checkIn: tomorrow,
-      checkOut: nextWeek,
-      status: ReservationStatus.CONFIRMED,
-      totalPrice: 1200,
-      unitId: unit1.id,
+      level: 'ORGANIZATION',
+      status: 'CONNECTED',
+      accessToken: 'fake_access_token_org',
+      refreshToken: 'fake_refresh_token_org',
+      expiresAt: add(new Date(), { days: 30 }),
+      lastSyncedAt: new Date(),
+      organizationId: org.id,
     },
   })
 
-  const reservation2 = await prisma.reservation.create({
+  await prisma.airbnbListingMapping.create({
     data: {
-      airbnbReservationId: 'RES-002',
-      guestName: 'Robert Martinez',
-      guestEmail: 'robert.m@example.com',
-      guestPhone: '+1-555-0456',
-      numberOfGuests: 4,
-      checkIn: nextWeek,
-      checkOut: twoWeeks,
-      status: ReservationStatus.CONFIRMED,
-      totalPrice: 1800,
-      unitId: unit2.id,
+      airbnbListingId: 'ABB-12345678',
+      airbnbUrl: 'https://airbnb.com/rooms/12345678',
+      autoSyncCalendar: true,
+      lastSyncedAt: new Date(),
+      unitId: unitA.id,
     },
   })
 
-  console.log('✅ Created 2 reservations')
+  await prisma.airbnbListingMapping.create({
+    data: {
+      airbnbListingId: 'ABB-87654321',
+      airbnbUrl: 'https://airbnb.com/rooms/87654321',
+      autoSyncCalendar: true,
+      lastSyncedAt: new Date(),
+      unitId: unitB.id,
+    },
+  })
 
-  // Create Tasks
-  await prisma.task.createMany({
+  await prisma.airbnbListingMapping.create({
+    data: {
+      airbnbListingId: 'ABB-11223344',
+      airbnbUrl: 'https://airbnb.com/rooms/11223344',
+      autoSyncCalendar: true,
+      lastSyncedAt: new Date(),
+      unitId: unitC.id,
+    },
+  })
+
+  // ============================================
+  // TASK TEMPLATES
+  // ============================================
+
+  console.log('📝 Creating task templates...')
+
+  const turnoverCleaningTemplate = await prisma.taskTemplate.create({
+    data: {
+      name: 'Standard Turnover Cleaning',
+      description: 'Complete cleaning between guest stays',
+      type: 'CLEANING',
+      trigger: 'AFTER_CHECK_OUT',
+      triggerOffsetHours: 2, // 2 hours after checkout
+      requiresChecklist: true,
+      requiresProof: true,
+      estimatedMinutes: 90,
+      organizationId: org.id,
+    },
+  })
+
+  const inspectionTemplate = await prisma.taskTemplate.create({
+    data: {
+      name: 'Quality Inspection',
+      description: 'Final quality check before guest arrival',
+      type: 'INSPECTION',
+      trigger: 'BEFORE_CHECK_IN',
+      triggerOffsetHours: -4, // 4 hours before check-in
+      requiresChecklist: true,
+      requiresProof: false,
+      estimatedMinutes: 30,
+      organizationId: org.id,
+    },
+  })
+
+  const restockingTemplate = await prisma.taskTemplate.create({
+    data: {
+      name: 'Restocking Supplies',
+      description: 'Restock toiletries, linens, and amenities',
+      type: 'RESTOCKING',
+      trigger: 'AFTER_CHECK_OUT',
+      triggerOffsetHours: 3,
+      requiresChecklist: false,
+      requiresProof: false,
+      estimatedMinutes: 20,
+      organizationId: org.id,
+    },
+  })
+
+  // ============================================
+  // CHECKLIST TEMPLATES
+  // ============================================
+
+  console.log('✅ Creating checklist templates...')
+
+  const cleaningChecklist = await prisma.checklistTemplate.create({
+    data: {
+      name: 'Standard Cleaning Checklist',
+      description: 'Items to complete for every turnover',
+      type: 'CLEANING',
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.checklistTemplateItem.createMany({
     data: [
       {
-        title: 'Pre-arrival deep clean',
-        description: 'Complete deep clean before guest check-in tomorrow',
-        type: TaskType.CLEANING,
-        status: TaskStatus.ASSIGNED,
-        priority: TaskPriority.HIGH,
-        scheduledFor: new Date(tomorrow.getTime() - 3600000 * 4), // 4 hours before check-in
-        unitId: unit1.id,
-        assignedToId: cleaner1.id,
-        reservationId: reservation1.id,
+        templateId: cleaningChecklist.id,
+        title: 'Strip and remake all beds with fresh linens',
+        order: 1,
+        requiresPhoto: true,
+        photoPrompt: 'Photo of freshly made beds',
       },
       {
-        title: 'Stock welcome basket',
-        description: 'Prepare welcome basket with snacks and drinks',
-        type: TaskType.RESTOCKING,
-        status: TaskStatus.PENDING,
-        priority: TaskPriority.MEDIUM,
-        scheduledFor: new Date(tomorrow.getTime() - 3600000 * 2), // 2 hours before check-in
-        unitId: unit1.id,
-        reservationId: reservation1.id,
+        templateId: cleaningChecklist.id,
+        title: 'Clean and sanitize all bathrooms',
+        order: 2,
+        requiresPhoto: true,
+        photoPrompt: 'Photo of clean bathroom',
       },
       {
-        title: 'Mid-stay inspection',
-        description: 'Check unit condition and restock supplies',
-        type: TaskType.INSPECTION,
-        status: TaskStatus.PENDING,
-        priority: TaskPriority.MEDIUM,
-        scheduledFor: new Date(nextWeek.getTime() - 3600000 * 24 * 3), // 3 days into stay
-        unitId: unit1.id,
-        assignedToId: manager.id,
-        reservationId: reservation1.id,
+        templateId: cleaningChecklist.id,
+        title: 'Vacuum and mop all floors',
+        order: 3,
+        requiresPhoto: false,
       },
       {
-        title: 'Turnover cleaning',
-        description: 'Full turnover clean after checkout',
-        type: TaskType.CLEANING,
-        status: TaskStatus.PENDING,
-        priority: TaskPriority.HIGH,
-        scheduledFor: nextWeek,
-        unitId: unit2.id,
-        assignedToId: cleaner2.id,
-        reservationId: reservation2.id,
+        templateId: cleaningChecklist.id,
+        title: 'Clean kitchen and appliances',
+        order: 4,
+        requiresPhoto: true,
+        photoPrompt: 'Photo of clean kitchen',
       },
       {
-        title: 'Linen change - all bedrooms',
-        description: 'Replace all linens with fresh sets',
-        type: TaskType.LINEN_CHANGE,
-        status: TaskStatus.PENDING,
-        priority: TaskPriority.MEDIUM,
-        scheduledFor: nextWeek,
-        unitId: unit3.id,
-        assignedToId: cleaner1.id,
+        templateId: cleaningChecklist.id,
+        title: 'Empty all trash and replace liners',
+        order: 5,
+        requiresPhoto: false,
+      },
+      {
+        templateId: cleaningChecklist.id,
+        title: 'Dust all surfaces and wipe down furniture',
+        order: 6,
+        requiresPhoto: false,
       },
     ],
   })
 
-  console.log('✅ Created 5 tasks')
-
-  // Create Checklists
-  const cleaningChecklist = await prisma.checklist.create({
+  const inspectionChecklistTemplate = await prisma.checklistTemplate.create({
     data: {
-      name: 'Standard Turnover Checklist',
-      description: 'Complete checklist for unit turnover between guests',
-      unitId: unit1.id,
-      items: {
-        create: [
-          { title: 'Strip and wash all linens', order: 1 },
-          { title: 'Clean and sanitize bathrooms', order: 2 },
-          { title: 'Vacuum and mop all floors', order: 3 },
-          { title: 'Dust all surfaces', order: 4 },
-          { title: 'Clean kitchen and appliances', order: 5 },
-          { title: 'Restock toiletries and paper products', order: 6 },
-          { title: 'Check and replace light bulbs', order: 7 },
-          { title: 'Take out trash and recycling', order: 8 },
-          { title: 'Final walkthrough and photos', order: 9 },
-        ],
+      name: 'Pre-Arrival Inspection',
+      description: 'Final quality check',
+      type: 'INSPECTION',
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.checklistTemplateItem.createMany({
+    data: [
+      {
+        templateId: inspectionChecklistTemplate.id,
+        title: 'All lights working',
+        order: 1,
       },
+      {
+        templateId: inspectionChecklistTemplate.id,
+        title: 'Temperature comfortable (68-72°F)',
+        order: 2,
+      },
+      {
+        templateId: inspectionChecklistTemplate.id,
+        title: 'No odors or cleanliness issues',
+        order: 3,
+      },
+      {
+        templateId: inspectionChecklistTemplate.id,
+        title: 'Welcome book and amenities in place',
+        order: 4,
+        requiresPhoto: true,
+        photoPrompt: 'Photo of welcome amenities',
+      },
+    ],
+  })
+
+  // ============================================
+  // RESERVATIONS
+  // ============================================
+
+  console.log('📅 Creating reservations...')
+
+  const now = new Date()
+
+  // Past reservation (completed)
+  const res1 = await prisma.reservation.create({
+    data: {
+      airbnbReservationId: 'RES-PAST-001',
+      confirmationCode: 'HMB4K2XY',
+      guestName: 'Emily Johnson',
+      guestEmail: 'emily.j@email.com',
+      guestPhone: '+1-555-0200',
+      numberOfGuests: 4,
+      hasPets: false,
+      checkIn: sub(now, { days: 10 }),
+      checkOut: sub(now, { days: 7 }),
+      status: 'CHECKED_OUT',
+      totalPrice: 1200,
+      unitId: unitA.id,
     },
   })
 
-  console.log('✅ Created checklist with 9 items')
-
-  // Create Vendors
-  const vendor1 = await prisma.vendor.create({
+  // Current reservation (checked in)
+  const res2 = await prisma.reservation.create({
     data: {
-      name: 'QuickFix Plumbing',
-      email: 'service@quickfixplumbing.com',
-      phone: '+1-555-7890',
-      type: VendorType.PLUMBING,
-      address: '789 Service Road, Santa Monica, CA 90401',
+      airbnbReservationId: 'RES-CURRENT-001',
+      confirmationCode: 'XY7PQ9WL',
+      guestName: 'James Martinez',
+      guestEmail: 'james.m@email.com',
+      numberOfGuests: 2,
+      hasPets: false,
+      checkIn: sub(now, { days: 2 }),
+      checkOut: add(now, { days: 3 }),
+      status: 'CHECKED_IN',
+      totalPrice: 850,
+      unitId: unitB.id,
+    },
+  })
+
+  // Upcoming reservation (tomorrow check-in)
+  const res3 = await prisma.reservation.create({
+    data: {
+      airbnbReservationId: 'RES-UPCOMING-001',
+      confirmationCode: 'AB3CD4EF',
+      guestName: 'Lisa Thompson',
+      guestEmail: 'lisa.t@email.com',
+      guestPhone: '+1-555-0202',
+      numberOfGuests: 3,
+      hasPets: true,
+      checkIn: add(now, { hours: 24 }),
+      checkOut: add(now, { days: 5 }),
+      status: 'CONFIRMED',
+      totalPrice: 1400,
+      guestNotes: 'Early check-in requested at 2pm',
+      unitId: unitC.id,
+    },
+  })
+
+  // Upcoming reservation (3 days out)
+  const res4 = await prisma.reservation.create({
+    data: {
+      airbnbReservationId: 'RES-UPCOMING-002',
+      confirmationCode: 'GH5IJ6KL',
+      guestName: 'Robert Kim',
+      guestEmail: 'robert.k@email.com',
+      numberOfGuests: 2,
+      hasPets: false,
+      checkIn: add(now, { days: 3 }),
+      checkOut: add(now, { days: 7 }),
+      status: 'CONFIRMED',
+      totalPrice: 950,
+      unitId: unitA.id,
+    },
+  })
+
+  // Future reservation
+  const res5 = await prisma.reservation.create({
+    data: {
+      airbnbReservationId: 'RES-FUTURE-001',
+      confirmationCode: 'MN7OP8QR',
+      guestName: 'Amanda Davis',
+      guestEmail: 'amanda.d@email.com',
+      numberOfGuests: 6,
+      hasPets: false,
+      checkIn: add(now, { days: 14 }),
+      checkOut: add(now, { days: 18 }),
+      status: 'CONFIRMED',
+      totalPrice: 2100,
+      unitId: unitA.id,
+    },
+  })
+
+  const res6 = await prisma.reservation.create({
+    data: {
+      airbnbReservationId: 'RES-FUTURE-002',
+      confirmationCode: 'ST9UV0WX',
+      guestName: 'Chris Anderson',
+      guestEmail: 'chris.a@email.com',
+      numberOfGuests: 4,
+      hasPets: true,
+      checkIn: add(now, { days: 20 }),
+      checkOut: add(now, { days: 23 }),
+      status: 'CONFIRMED',
+      totalPrice: 1650,
+      unitId: unitB.id,
+    },
+  })
+
+  // ============================================
+  // TASK INSTANCES (Auto-generated from reservations)
+  // ============================================
+
+  console.log('📋 Creating task instances...')
+
+  // For res3 (tomorrow check-in) - needs cleaning and inspection
+  const cleaningTask1 = await prisma.taskInstance.create({
+    data: {
+      title: 'Turnover Cleaning - Unit C',
+      description: 'Complete cleaning for Lisa Thompson arrival',
+      type: 'CLEANING',
+      status: 'COMPLETED',
+      scheduledFor: add(res3.checkIn, { hours: -22 }), // 2 hours after previous checkout
+      completedAt: sub(now, { hours: 6 }),
+      templateId: turnoverCleaningTemplate.id,
+      unitId: unitC.id,
+      reservationId: res3.id,
+    },
+  })
+
+  const inspectionTask1 = await prisma.taskInstance.create({
+    data: {
+      title: 'Pre-Arrival Inspection - Unit C',
+      description: 'Final quality check before Lisa Thompson',
+      type: 'INSPECTION',
+      status: 'PENDING',
+      scheduledFor: add(res3.checkIn, { hours: -4 }), // 4 hours before check-in
+      templateId: inspectionTemplate.id,
+      unitId: unitC.id,
+      reservationId: res3.id,
+    },
+  })
+
+  // For res4 (3 days out) - needs all tasks
+  const cleaningTask2 = await prisma.taskInstance.create({
+    data: {
+      title: 'Turnover Cleaning - Beach House',
+      description: 'Complete cleaning for Robert Kim arrival',
+      type: 'CLEANING',
+      status: 'ASSIGNED',
+      scheduledFor: add(res4.checkIn, { hours: -70 }),
+      templateId: turnoverCleaningTemplate.id,
+      unitId: unitA.id,
+      reservationId: res4.id,
+    },
+  })
+
+  const restockingTask1 = await prisma.taskInstance.create({
+    data: {
+      title: 'Restock Supplies - Beach House',
+      description: 'Restock toiletries and linens',
+      type: 'RESTOCKING',
+      status: 'PENDING',
+      scheduledFor: add(res4.checkIn, { hours: -69 }),
+      templateId: restockingTemplate.id,
+      unitId: unitA.id,
+      reservationId: res4.id,
+    },
+  })
+
+  const inspectionTask2 = await prisma.taskInstance.create({
+    data: {
+      title: 'Pre-Arrival Inspection - Beach House',
+      type: 'INSPECTION',
+      status: 'PENDING',
+      scheduledFor: add(res4.checkIn, { hours: -4 }),
+      templateId: inspectionTemplate.id,
+      unitId: unitA.id,
+      reservationId: res4.id,
+    },
+  })
+
+  // ============================================
+  // CHECKLIST RUNS
+  // ============================================
+
+  console.log('✅ Creating checklist runs...')
+
+  const cleaningRun1 = await prisma.checklistRun.create({
+    data: {
+      status: 'COMPLETED',
+      startedAt: sub(now, { hours: 7 }),
+      completedAt: sub(now, { hours: 6 }),
+      passed: true,
+      notes: 'All tasks completed. Unit looks great!',
+      templateId: cleaningChecklist.id,
+      unitId: unitC.id,
+      taskInstanceId: cleaningTask1.id,
+    },
+  })
+
+  // Create items for the completed checklist run
+  await prisma.checklistRunItem.createMany({
+    data: [
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Strip and remake all beds with fresh linens',
+        completed: true,
+        order: 1,
+        requiresPhoto: true,
+        photoUrl: 'https://example.com/photos/bed-made.jpg',
+      },
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Clean and sanitize all bathrooms',
+        completed: true,
+        order: 2,
+        requiresPhoto: true,
+        photoUrl: 'https://example.com/photos/bathroom-clean.jpg',
+      },
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Vacuum and mop all floors',
+        completed: true,
+        order: 3,
+      },
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Clean kitchen and appliances',
+        completed: true,
+        order: 4,
+        requiresPhoto: true,
+        photoUrl: 'https://example.com/photos/kitchen-clean.jpg',
+      },
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Empty all trash and replace liners',
+        completed: true,
+        order: 5,
+      },
+      {
+        checklistRunId: cleaningRun1.id,
+        title: 'Dust all surfaces and wipe down furniture',
+        completed: true,
+        order: 6,
+      },
+    ],
+  })
+
+  // ============================================
+  // VENDORS
+  // ============================================
+
+  console.log('🔧 Creating vendors...')
+
+  const cleaningVendor = await prisma.vendor.create({
+    data: {
+      name: 'Maria Gonzalez',
+      company: 'Sparkle Clean Co',
+      email: 'maria@sparkleclean.com',
+      phone: '+1-415-555-0300',
+      rating: 4.9,
+      reviewCount: 127,
       organizationId: org.id,
     },
   })
 
-  const vendor2 = await prisma.vendor.create({
+  await prisma.vendorSkill.create({
     data: {
-      name: 'Elite HVAC Services',
-      email: 'contact@elitehvac.com',
-      phone: '+1-555-4567',
-      type: VendorType.HVAC,
-      address: '321 Industrial Blvd, Los Angeles, CA 90012',
+      type: 'CLEANING',
+      hourlyRate: 45,
+      vendorId: cleaningVendor.id,
+    },
+  })
+
+  await prisma.vendorCoverageArea.createMany({
+    data: [
+      {
+        vendorId: cleaningVendor.id,
+        propertyId: beachHouse.id,
+        travelTimeMinutes: 15,
+      },
+      {
+        vendorId: cleaningVendor.id,
+        propertyId: downtownCondo.id,
+        travelTimeMinutes: 25,
+      },
+    ],
+  })
+
+  const plumbingVendor = await prisma.vendor.create({
+    data: {
+      name: 'Tom Harris',
+      company: 'Bay Area Plumbing',
+      email: 'tom@bayareaplumbing.com',
+      phone: '+1-415-555-0301',
+      rating: 4.7,
+      reviewCount: 89,
       organizationId: org.id,
     },
   })
 
-  console.log('✅ Created 2 vendors')
-
-  // Create Work Orders
-  await prisma.workOrder.create({
+  await prisma.vendorSkill.create({
     data: {
-      title: 'Fix leaking bathroom faucet',
-      description: 'Guest reported dripping faucet in master bathroom',
-      status: 'OPEN',
+      type: 'PLUMBING',
+      hourlyRate: 95,
+      vendorId: plumbingVendor.id,
+    },
+  })
+
+  await prisma.vendorCoverageArea.create({
+    data: {
+      vendorId: plumbingVendor.id,
+      propertyId: beachHouse.id,
+      travelTimeMinutes: 30,
+    },
+  })
+
+  // ============================================
+  // ASSIGNMENTS
+  // ============================================
+
+  console.log('📌 Creating assignments...')
+
+  const assignment1 = await prisma.assignment.create({
+    data: {
+      status: 'COMPLETED',
+      userId: cleaner.id,
+      taskInstanceId: cleaningTask1.id,
+      assignedAt: sub(now, { hours: 8 }),
+      acceptedAt: sub(now, { hours: 7, minutes: 30 }),
+      completedAt: sub(now, { hours: 6 }),
+    },
+  })
+
+  const assignment2 = await prisma.assignment.create({
+    data: {
+      status: 'ACCEPTED',
+      userId: cleaner.id,
+      taskInstanceId: cleaningTask2.id,
+      assignedAt: sub(now, { hours: 2 }),
+      acceptedAt: sub(now, { hours: 1 }),
+    },
+  })
+
+  const assignment3 = await prisma.assignment.create({
+    data: {
+      status: 'PENDING',
+      userId: inspector.id,
+      taskInstanceId: inspectionTask1.id,
+      assignedAt: sub(now, { hours: 1 }),
+    },
+  })
+
+  // ============================================
+  // PROOFS
+  // ============================================
+
+  console.log('📸 Creating proof records...')
+
+  await prisma.proof.create({
+    data: {
+      type: 'GPS_CHECKIN',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      capturedAt: sub(now, { hours: 7 }),
+      userId: cleaner.id,
+      taskInstanceId: cleaningTask1.id,
+    },
+  })
+
+  await prisma.proof.create({
+    data: {
+      type: 'PHOTO',
+      fileUrl: 'https://example.com/proofs/bedroom-cleaned.jpg',
+      note: 'All bedrooms cleaned and beds made',
+      capturedAt: sub(now, { hours: 6, minutes: 30 }),
+      userId: cleaner.id,
+      taskInstanceId: cleaningTask1.id,
+    },
+  })
+
+  await prisma.proof.create({
+    data: {
+      type: 'GPS_CHECKOUT',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      capturedAt: sub(now, { hours: 6 }),
+      userId: cleaner.id,
+      taskInstanceId: cleaningTask1.id,
+    },
+  })
+
+  // ============================================
+  // WORK ORDERS
+  // ============================================
+
+  console.log('🔨 Creating work orders...')
+
+  const workOrder1 = await prisma.workOrder.create({
+    data: {
+      title: 'Leaking Kitchen Faucet',
+      description: 'Guest reported dripping faucet in kitchen. Needs repair before next booking.',
+      status: 'COMPLETED',
       priority: 'HIGH',
-      estimatedCost: 150,
-      propertyId: property1.id,
-      vendorId: vendor1.id,
+      propertyId: beachHouse.id,
+      completedAt: sub(now, { days: 2 }),
     },
   })
 
-  await prisma.workOrder.create({
+  await prisma.workOrderLineItem.createMany({
+    data: [
+      {
+        workOrderId: workOrder1.id,
+        description: 'Replace kitchen faucet cartridge',
+        quantity: 1,
+        unitPrice: 45,
+        totalPrice: 45,
+      },
+      {
+        workOrderId: workOrder1.id,
+        description: 'Labor (1.5 hours)',
+        quantity: 1,
+        unitPrice: 142.5,
+        totalPrice: 142.5,
+      },
+    ],
+  })
+
+  const quote1 = await prisma.workOrderQuote.create({
     data: {
-      title: 'Annual HVAC maintenance',
-      description: 'Scheduled annual maintenance for all HVAC units',
-      status: 'IN_PROGRESS',
+      totalAmount: 187.5,
+      notes: 'Can complete today. Parts in stock.',
+      status: 'ACCEPTED',
+      vendorId: plumbingVendor.id,
+      workOrderId: workOrder1.id,
+    },
+  })
+
+  await prisma.workOrderApproval.create({
+    data: {
+      status: 'APPROVED',
+      notes: 'Approved - urgent repair needed',
+      approvedBy: manager.id,
+      approvedByName: 'Mike Rodriguez',
+      workOrderId: workOrder1.id,
+    },
+  })
+
+  const woAssignment1 = await prisma.assignment.create({
+    data: {
+      status: 'COMPLETED',
+      vendorId: plumbingVendor.id,
+      workOrderId: workOrder1.id,
+      assignedAt: sub(now, { days: 3 }),
+      acceptedAt: sub(now, { days: 3 }),
+      completedAt: sub(now, { days: 2 }),
+    },
+  })
+
+  await prisma.proof.create({
+    data: {
+      type: 'PHOTO',
+      fileUrl: 'https://example.com/proofs/faucet-repaired.jpg',
+      note: 'Faucet repaired and tested - no leaks',
+      capturedAt: sub(now, { days: 2 }),
+      userId: manager.id, // Manager verified
+      workOrderId: workOrder1.id,
+    },
+  })
+
+  // Pending work order
+  const workOrder2 = await prisma.workOrder.create({
+    data: {
+      title: 'HVAC Maintenance',
+      description: 'Annual HVAC system check and filter replacement',
+      status: 'PENDING_QUOTE',
       priority: 'MEDIUM',
-      estimatedCost: 500,
-      propertyId: property2.id,
-      assignedToId: manager.id,
-      vendorId: vendor2.id,
+      propertyId: downtownCondo.id,
     },
   })
 
-  console.log('✅ Created 2 work orders')
-
-  // Create Airbnb Integration
-  await prisma.integration.create({
+  await prisma.workOrderLineItem.create({
     data: {
-      provider: 'airbnb',
-      status: 'CONNECTED',
-      organizationId: org.id,
-      lastSyncedAt: new Date(),
+      workOrderId: workOrder2.id,
+      description: 'Annual HVAC inspection and maintenance',
+      quantity: 1,
     },
   })
 
-  console.log('✅ Created Airbnb integration')
+  // ============================================
+  // INVOICES & PAYOUTS
+  // ============================================
 
-  console.log('\n🎉 Seed completed successfully!')
-  console.log('\n📧 Test login credentials:')
-  console.log('   Email: owner@coastalstays.com')
-  console.log('   Password: password123\n')
+  console.log('💰 Creating invoices and payouts...')
+
+  const invoice1 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2024-001',
+      status: 'PAID',
+      totalAmount: 187.5,
+      paidAmount: 187.5,
+      dueDate: sub(now, { days: 1 }),
+      notes: 'Kitchen faucet repair - Ocean View Beach House',
+      vendorId: plumbingVendor.id,
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.payout.create({
+    data: {
+      amount: 187.5,
+      status: 'PAID',
+      method: 'ACH',
+      description: 'Payment for kitchen faucet repair',
+      paidAt: sub(now, { days: 1 }),
+      vendorId: plumbingVendor.id,
+      invoiceId: invoice1.id,
+    },
+  })
+
+  // Pending payout for cleaning
+  const invoice2 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2024-002',
+      status: 'SENT',
+      totalAmount: 135, // 3 cleanings @ $45/hour
+      paidAmount: 0,
+      dueDate: add(now, { days: 7 }),
+      notes: 'Cleaning services - Week of ' + now.toLocaleDateString(),
+      vendorId: cleaningVendor.id,
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.payout.create({
+    data: {
+      amount: 135,
+      status: 'PENDING',
+      method: 'PAYPAL',
+      description: 'Weekly cleaning services',
+      vendorId: cleaningVendor.id,
+      invoiceId: invoice2.id,
+    },
+  })
+
+  // ============================================
+  // AUDIT LOG
+  // ============================================
+
+  console.log('📊 Creating audit log entries...')
+
+  await prisma.auditLog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'Reservation',
+      entityId: res3.id,
+      changes: {
+        guestName: 'Lisa Thompson',
+        checkIn: res3.checkIn.toISOString(),
+        checkOut: res3.checkOut.toISOString(),
+      },
+      userId: manager.id,
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      action: 'STATUS_CHANGE',
+      entityType: 'TaskInstance',
+      entityId: cleaningTask1.id,
+      changes: {
+        before: { status: 'ASSIGNED' },
+        after: { status: 'COMPLETED' },
+      },
+      userId: cleaner.id,
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      action: 'ASSIGN',
+      entityType: 'Assignment',
+      entityId: assignment2.id,
+      changes: {
+        taskId: cleaningTask2.id,
+        assignedTo: cleaner.name,
+      },
+      userId: manager.id,
+      organizationId: org.id,
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      action: 'APPROVE',
+      entityType: 'WorkOrder',
+      entityId: workOrder1.id,
+      changes: {
+        status: 'APPROVED',
+        approvedBy: manager.name,
+      },
+      userId: manager.id,
+      organizationId: org.id,
+    },
+  })
+
+  console.log('✅ Seed complete!')
+  console.log('')
+  console.log('📊 Summary:')
+  console.log('   - Organization: Coastal Stays Management')
+  console.log('   - Users: 4 (Owner, Manager, Cleaner, Inspector)')
+  console.log('   - Properties: 2')
+  console.log('   - Units: 3')
+  console.log('   - Reservations: 6 (1 past, 1 current, 4 upcoming)')
+  console.log('   - Task Instances: 5')
+  console.log('   - Checklist Runs: 1 (completed with 6 items)')
+  console.log('   - Vendors: 2 (Cleaning, Plumbing)')
+  console.log('   - Work Orders: 2 (1 completed, 1 pending)')
+  console.log('   - Assignments: 4')
+  console.log('   - Proofs: 4')
+  console.log('   - Invoices: 2')
+  console.log('   - Payouts: 2 (1 paid, 1 pending)')
+  console.log('')
+  console.log('🔐 Test Credentials:')
+  console.log('   Email: sarah@coastalstays.com (Owner)')
+  console.log('   Email: mike@coastalstays.com (Manager)')
+  console.log('   Email: jessica@example.com (Cleaner)')
+  console.log('   Email: david@example.com (Inspector)')
+  console.log('   Password: password123 (all users)')
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e)
+    console.error(e)
     process.exit(1)
   })
   .finally(async () => {
