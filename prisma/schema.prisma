@@ -1,0 +1,447 @@
+// Worksy Ops - Prisma Schema
+// Multi-tenant Airbnb property management system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTH & USER MANAGEMENT
+// ============================================
+
+enum UserRole {
+  OWNER
+  MANAGER
+  COORDINATOR
+  VENDOR
+  CLEANER
+  INSPECTOR
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  role          UserRole  @default(COORDINATOR)
+  image         String?
+  emailVerified DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  tasks              Task[]
+  workOrders         WorkOrder[]
+  messagesReceived   Message[]         @relation("MessageRecipient")
+  messagesSent       Message[]         @relation("MessageSender")
+  payouts            Payout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+// ============================================
+// MULTI-TENANT ORGANIZATION
+// ============================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  timezone    String   @default("America/New_York")
+
+  // Subscription/billing (stub)
+  plan        String   @default("trial") // trial, basic, pro, enterprise
+
+  // Relations
+  users        User[]
+  properties   Property[]
+  vendors      Vendor[]
+  integrations Integration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+// ============================================
+// PROPERTY & UNIT MANAGEMENT
+// ============================================
+
+model Property {
+  id             String   @id @default(cuid())
+  name           String
+  address        String
+  city           String
+  state          String
+  zipCode        String
+  country        String   @default("US")
+
+  airbnbListingId String? @unique
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  units         Unit[]
+  workOrders    WorkOrder[]
+  integrations  Integration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([airbnbListingId])
+}
+
+enum UnitStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+model Unit {
+  id          String      @id @default(cuid())
+  name        String      // e.g., "Unit 101", "Studio A"
+  bedrooms    Int
+  bathrooms   Float
+  status      UnitStatus  @default(ACTIVE)
+
+  propertyId  String
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Relations
+  reservations Reservation[]
+  tasks        Task[]
+  checklists   Checklist[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+}
+
+// ============================================
+// RESERVATIONS (Airbnb bookings)
+// ============================================
+
+enum ReservationStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  airbnbReservationId String?       @unique
+
+  guestName       String
+  guestEmail      String?
+  guestPhone      String?
+  numberOfGuests  Int
+
+  checkIn         DateTime
+  checkOut        DateTime
+  status          ReservationStatus @default(CONFIRMED)
+
+  totalPrice      Float
+
+  unitId          String
+  unit            Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  // Relations
+  tasks           Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId])
+  @@index([checkIn])
+  @@index([checkOut])
+}
+
+// ============================================
+// TASK SCHEDULING & COORDINATION
+// ============================================
+
+enum TaskType {
+  CLEANING
+  INSPECTION
+  MAINTENANCE
+  RESTOCKING
+  CHECK_IN_PREP
+  CHECK_OUT_REVIEW
+  LINEN_CHANGE
+  DEEP_CLEAN
+  CUSTOM
+}
+
+enum TaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  type        TaskType
+  status      TaskStatus    @default(PENDING)
+  priority    TaskPriority  @default(MEDIUM)
+
+  scheduledFor DateTime
+  completedAt  DateTime?
+
+  unitId       String
+  unit         Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?         @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  reservationId String?
+  reservation   Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  checklistId   String?
+  checklist     Checklist?    @relation(fields: [checklistId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+// ============================================
+// CHECKLISTS
+// ============================================
+
+model Checklist {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+
+  unitId      String
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  items       ChecklistItem[]
+  tasks       Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([unitId])
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  order       Int       @default(0)
+  completed   Boolean   @default(false)
+
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([checklistId])
+}
+
+// ============================================
+// MAINTENANCE & WORK ORDERS
+// ============================================
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+model WorkOrder {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  status      WorkOrderStatus    @default(OPEN)
+  priority    WorkOrderPriority  @default(MEDIUM)
+
+  estimatedCost Float?
+  actualCost    Float?
+
+  propertyId  String
+  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?              @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  vendorId     String?
+  vendor       Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+// ============================================
+// VENDORS
+// ============================================
+
+enum VendorType {
+  CLEANING
+  MAINTENANCE
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  LANDSCAPING
+  GENERAL
+}
+
+model Vendor {
+  id          String      @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  type        VendorType
+
+  address     String?
+  notes       String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  workOrders  WorkOrder[]
+  payouts     Payout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// ============================================
+// PAYOUTS & PAYMENTS
+// ============================================
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model Payout {
+  id          String        @id @default(cuid())
+  amount      Float
+  status      PayoutStatus  @default(PENDING)
+  description String?
+
+  paidAt      DateTime?
+
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  vendorId    String?
+  vendor      Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+// ============================================
+// MESSAGING
+// ============================================
+
+model Message {
+  id        String   @id @default(cuid())
+  subject   String?
+  body      String
+  read      Boolean  @default(false)
+
+  senderId    String
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  recipientId String
+  recipient   User     @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([recipientId])
+  @@index([senderId])
+}
+
+// ============================================
+// AIRBNB INTEGRATION
+// ============================================
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+model Integration {
+  id            String            @id @default(cuid())
+  provider      String            @default("airbnb") // Only Airbnb for now
+  status        IntegrationStatus @default(DISCONNECTED)
+
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  propertyId     String?
+  property       Property?         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  lastSyncedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([propertyId])
+}
